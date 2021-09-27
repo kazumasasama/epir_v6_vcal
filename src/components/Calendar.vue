@@ -25,6 +25,14 @@
           <div class="calendar-day">
             {{ day.day }}
           </div>
+          <div v-for="dayEvent in day.dayEvents" :key="dayEvent.id" >
+            <div 
+            class="calendar-event"
+            :style="`width:${dayEvent.width}%;background-color:${dayEvent.color}`" 
+            draggable="true" >
+            {{ dayEvent.name }}
+          </div>
+          </div>
         </div>
       </div>
     </div>
@@ -37,6 +45,27 @@ export default {
   data() {
     return {
       currentDate: moment(),
+      events:[
+        { id: 1, name: "ミーティング", start: "2021-09-01", end:"2021-09-01", color:"blue"},
+        { id: 2, name: "イベント", start: "2021-09-02", end:"2021-09-03", color:"limegreen"},
+        { id: 3, name: "会議", start: "2021-09-06", end:"2021-09-06", color:"deepskyblue"},
+        { id: 4, name: "有給", start: "2021-09-08", end:"2021-09-08", color:"dimgray"},
+        { id: 5, name: "海外旅行", start: "2021-09-08", end:"2021-09-11", color:"navy"},
+        { id: 6, name: "誕生日", start: "2021-09-16", end:"2021-09-16", color:"orange"},
+        { id: 7, name: "イベント", start: "2021-09-12", end:"2021-09-15", color:"limegreen"},
+        { id: 8, name: "出張", start: "2021-09-12", end:"2021-09-13", color:"teal"},
+        { id: 9, name: "客先訪問", start: "2021-09-14", end:"2021-09-14", color:"red"},
+        { id: 10, name: "パーティ", start: "2021-09-15", end:"2021-09-15", color:"royalblue"},
+        { id: 12, name: "ミーティング", start: "2021-09-18", end:"2021-09-19", color:"blue"},
+        { id: 13, name: "イベント", start: "2021-09-21", end:"2021-09-21", color:"limegreen"},
+        { id: 14, name: "有給", start: "2021-09-20", end:"2021-09-20", color:"dimgray"},
+        { id: 15, name: "イベント", start: "2021-09-25", end:"2021-09-28", color:"limegreen"},
+        { id: 16, name: "会議", start: "2021-09-21", end:"2021-09-21", color:"deepskyblue"},
+        { id: 17, name: "旅行", start: "2021-09-23", end:"2021-09-24", color:"navy"},
+        { id: 18, name: "ミーティング", start: "2021-09-28", end:"2021-09-28", color:"blue"},
+        { id: 19, name: "会議", start: "2021-09-12", end:"2021-09-12", color:"deepskyblue"},
+        { id: 20, name: "誕生日", start: "2021-09-30", end:"2021-09-30", color:"orange"},
+      ]
     };
   },
   methods: {
@@ -62,15 +91,62 @@ export default {
       for (let week = 0; week < weekNumber; week++) {
         let weekRow = [];
         for (let day = 0;  day < 7; day++) {
+          let dayEvents = this.getDayEvents(calendarDate)
           weekRow.push({
             day: calendarDate.get("date"),
             month: calendarDate.format("YYYY-MM"),
+            dayEvents
           });
           calendarDate.add(1, "days");
         }
         calendars.push(weekRow);
       }
       return calendars;
+    },
+    getDayEvents(date){
+      let dayEvents = [];
+      this.events.forEach(event => {
+        let startDate = moment(event.start).format('YYYY-MM-DD')
+        let endDate = moment(event.end).format('YYYY-MM-DD')
+        let Date = date.format('YYYY-MM-DD')
+
+        if(startDate == Date){
+          let betweenDays = moment(endDate).diff(moment(startDate), "days")
+          let width = betweenDays * 100 + 95;
+
+          dayEvents.push({...event,width})
+        }
+      });
+      return dayEvents;
+    },
+    getEventWidth(end, start, day){
+      let betweenDays = moment(end).diff(moment(start), "days")
+      if(betweenDays > 6 - day){
+        return (6 - day) * 100 + 95; 
+      }else{
+        return betweenDays * 100 + 95;
+      }
+    },
+    getStackEvents(event, day, stackIndex, dayEvents, startedEvents, start){
+      [stackIndex, dayEvents] = this.getStartedEvents(stackIndex, startedEvents, dayEvents)
+      let width = this.getEventWidth(start, event.end, day)
+      Object.assign(event,{
+        stackIndex
+      })
+      dayEvents.push({...event, width})
+      stackIndex++;
+      return [stackIndex,dayEvents];
+    },
+    getStartedEvents(stackIndex, startedEvents, dayEvents){
+      let startedEvent;
+      do{
+        startedEvent = startedEvents.find(event => event.stackIndex === stackIndex)
+        if(startedEvent) {
+          dayEvents.push(startedEvent) //ダミー領域として利用するため
+          stackIndex++;
+        }
+      }while(typeof startedEvent !== 'undefined')
+      return [stackIndex, dayEvents]
     },
     nextMonth() {
       this.currentDate = moment(this.currentDate).add(1, "month");
@@ -93,6 +169,15 @@ export default {
     currentMonth(){
       return this.currentDate.format('YYYY-MM')
     },
+    sortedEvents(){
+      return this.events.slice().sort(function(a,b) {
+        let startDate = moment(a.start).format('YYYY-MM-DD')
+        let startDate_2 = moment(b.start).format('YYYY-MM-DD')
+        if( startDate < startDate_2 ) return -1;
+        if( startDate > startDate_2 ) return 1;
+        return 0;
+      })
+    }
   },
 }
 </script>
@@ -137,5 +222,15 @@ export default {
 }
 .outside{
   background-color: #f7f7f7;
+}
+.calendar-event{
+  color:white;
+  margin-bottom:1px;
+  height:25px;
+  line-height:25px;
+  position: relative;
+  z-index:1;
+  border-radius:4px;
+  padding-left:4px;
 }
 </style>
