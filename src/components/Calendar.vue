@@ -21,17 +21,23 @@
           :class="{outside: currentMonth !== day.month}"
           v-for="(day, index) in week"
           :key="index"
+          @drop="dragEnd($event, day.date)"
+          @dragover.prevent
         >
           <div class="calendar-day">
             {{ day.day }}
           </div>
           <div v-for="dayEvent in day.dayEvents" :key="dayEvent.id" >
             <div 
-            class="calendar-event"
-            :style="`width:${dayEvent.width}%;background-color:${dayEvent.color}`" 
-            draggable="true" >
-            {{ dayEvent.name }}
-          </div>
+              v-if="dayEvent.width"
+              class="calendar-event"
+              :style="`width:${dayEvent.width}%;background-color:${dayEvent.color}`" 
+              draggable="true"
+              @dragstart="dragStart($event, dayEvent.id)"
+            >
+              {{ dayEvent.name }}
+            </div>
+            <div v-else style="height:26px"></div>
           </div>
         </div>
       </div>
@@ -91,11 +97,12 @@ export default {
       for (let week = 0; week < weekNumber; week++) {
         let weekRow = [];
         for (let day = 0;  day < 7; day++) {
-          let dayEvents = this.getDayEvents(calendarDate)
+          let dayEvents = this.getDayEvents(calendarDate, day);
           weekRow.push({
             day: calendarDate.get("date"),
             month: calendarDate.format("YYYY-MM"),
-            dayEvents
+            date: calendarDate.format("YYYY-MM-DD"),
+            dayEvents:dayEvents,
           });
           calendarDate.add(1, "days");
         }
@@ -103,23 +110,27 @@ export default {
       }
       return calendars;
     },
-    getDayEvents(date){
+    getDayEvents(date, day){
+      let stackIndex = 0;
       let dayEvents = [];
-      this.events.forEach(event => {
+      let startedEvents = [];
+      this.sortedEvents.forEach(event => {
         let startDate = moment(event.start).format('YYYY-MM-DD')
         let endDate = moment(event.end).format('YYYY-MM-DD')
         let Date = date.format('YYYY-MM-DD')
-
-        if(startDate == Date){
-          let betweenDays = moment(endDate).diff(moment(startDate), "days")
-          let width = betweenDays * 100 + 95;
-
-          dayEvents.push({...event,width})
+        if(startDate <= Date && endDate >= Date){
+          if(startDate === Date){
+            [stackIndex, dayEvents] = this.getStackEvents(event, day, date, stackIndex, dayEvents, startedEvents, event.start);
+          }else if(day === 0){
+            [stackIndex, dayEvents] = this.getStackEvents(event, day, date, stackIndex, dayEvents, startedEvents, Date);
+          }else{
+            startedEvents.push(event)
+          }
         }
       });
       return dayEvents;
     },
-    getEventWidth(end, start, day){
+    getEventWidth(start, end, day){
       let betweenDays = moment(end).diff(moment(start), "days")
       if(betweenDays > 6 - day){
         return (6 - day) * 100 + 95; 
@@ -142,7 +153,7 @@ export default {
       do{
         startedEvent = startedEvents.find(event => event.stackIndex === stackIndex)
         if(startedEvent) {
-          dayEvents.push(startedEvent) //ダミー領域として利用するため
+          dayEvents.push(startedEvent)
           stackIndex++;
         }
       }while(typeof startedEvent !== 'undefined')
@@ -157,6 +168,18 @@ export default {
     youbi(dayIndex) {
       const week = ["日", "月", "火", "水", "木", "金", "土"];
       return week[dayIndex];
+    },
+    dragStart(event, eventId){
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.dropEffect = "move";
+      event.dataTransfer.setData("eventId", eventId);
+    },
+    dragEnd(event, date){
+      let eventId = event.dataTransfer.getData("eventId");
+      let dragEvent = this.events.find(event => event.id == eventId)
+      let betweenDays = moment(dragEvent.end).diff(moment(dragEvent.start), "days");
+      dragEvent.start = date;
+      dragEvent.end = moment(dragEvent.start).add(betweenDays, "days").format("YYYY-MM-DD");
     },
   },
   computed: {
@@ -178,7 +201,7 @@ export default {
         return 0;
       })
     }
-  },
+  }
 }
 </script>
 
